@@ -5,76 +5,74 @@
 
 #define LARGURA_JANELA 800
 #define ALTURA_JANELA  600
-#define RAIO_JOGADOR   20.0f
-#define TOTAL_INIMIGOS 8
-#define DANO_TIRO      20
+#define MAX_ENTIDADES  32
 
 typedef enum {
-    INIMIGO_VIVO,
-    INIMIGO_MORTO
-} EstadoInimigo;
+    ENTIDADE_JOGADOR,
+    ENTIDADE_INIMIGO,
+    ENTIDADE_ITEM
+} TipoEntidade;
 
 typedef struct {
-    Vector2       pos;
-    float         raio;
-    int           vida;
-    EstadoInimigo estado;
-} Inimigo;
+    TipoEntidade tipo;
+    Vector2      pos;
+    float        raio;
+    Color        cor;
+    int          vida;
+} Entidade;
 
-void inicializarInimigos(Inimigo *vetor, int n) {
-    for (int i = 0; i < n; i++) {
-        Inimigo *ini = (vetor + i);
-        ini->pos    = (Vector2){ GetRandomValue(30, LARGURA_JANELA - 30),
-                                  GetRandomValue(30, ALTURA_JANELA - 30) };
-        ini->raio   = 15.0f;
-        ini->vida   = 60;
-        ini->estado = INIMIGO_VIVO;
+Entidade *criarEntidade(TipoEntidade tipo, Vector2 pos) {
+    Entidade *e = (Entidade *)malloc(sizeof(Entidade));
+    if (e == NULL) return NULL;
+
+    e->tipo = tipo;
+    e->pos = pos;
+
+    switch (tipo) {
+        case ENTIDADE_JOGADOR:
+            e->raio = 20.0f;
+            e->cor = BLUE;
+            e->vida = 100;
+            break;
+        case ENTIDADE_INIMIGO:
+            e->raio = 15.0f;
+            e->cor = MAROON;
+            e->vida = 60;
+            break;
+        case ENTIDADE_ITEM:
+            e->raio = 10.0f;
+            e->cor = GREEN;
+            e->vida = 1;
+            break;
+    }
+
+    return e;
+}
+
+void adicionarEntidade(Entidade **vetor, int *total, Entidade *nova) {
+    if (*total < MAX_ENTIDADES && nova != NULL) {
+        vetor[*total] = nova;
+        (*total)++;
     }
 }
 
-void atingirInimigo(Inimigo *inimigo, int dano) {
-    if (inimigo == NULL || inimigo->estado == INIMIGO_MORTO) return;
+void ordenarPorDistancia(Entidade **vetorEntidades, int totalEntidades) {
+    if (totalEntidades <= 2) return;
 
-    inimigo->vida -= dano;
-    if (inimigo->vida <= 0) {
-        inimigo->vida = 0;
-        inimigo->estado = INIMIGO_MORTO;
-    }
-}
+    Entidade *jogador = vetorEntidades[0];
 
-Inimigo *encontrarInimigoMaisProximo(Inimigo *vetor, int n, Vector2 posJogador) {
-    Inimigo *maisProximo = NULL;
-    float menorDistancia = 0.0f;
-
-    for (int i = 0; i < n; i++) {
-        Inimigo *ini = (vetor + i);
-        if (ini->estado == INIMIGO_MORTO) continue;
-
-        float dx = ini->pos.x - posJogador.x;
-        float dy = ini->pos.y - posJogador.y;
-        float distancia = sqrtf(dx * dx + dy * dy);
-
-        if (maisProximo == NULL || distancia < menorDistancia) {
-            maisProximo = ini;
-            menorDistancia = distancia;
-        }
-    }
-    return maisProximo;
-}
-
-void ordenarPorDistancia(Inimigo **vetorEntidades, int n, Vector2 posJogador) {
-    for (int i = 2; i < n; i++) {
-        for (int j = 1; j < n - 1; j++) {
-            float dx1 = vetorEntidades[j]->pos.x - posJogador.x;
-            float dy1 = vetorEntidades[j]->pos.y - posJogador.y;
+    for (int i = 1; i < totalEntidades - 1; i++) {
+        for (int j = 1; j < totalEntidades - 1; j++) {
+            float dx1 = vetorEntidades[j]->pos.x - jogador->pos.x;
+            float dy1 = vetorEntidades[j]->pos.y - jogador->pos.y;
             float dist1 = sqrtf(dx1 * dx1 + dy1 * dy1);
 
-            float dx2 = vetorEntidades[j + 1]->pos.x - posJogador.x;
-            float dy2 = vetorEntidades[j + 1]->pos.y - posJogador.y;
+            float dx2 = vetorEntidades[j + 1]->pos.x - jogador->pos.x;
+            float dy2 = vetorEntidades[j + 1]->pos.y - jogador->pos.y;
             float dist2 = sqrtf(dx2 * dx2 + dy2 * dy2);
 
             if (dist1 > dist2) {
-                Inimigo *tmp = vetorEntidades[j];
+                Entidade *tmp = vetorEntidades[j];
                 vetorEntidades[j] = vetorEntidades[j + 1];
                 vetorEntidades[j + 1] = tmp;
             }
@@ -82,62 +80,71 @@ void ordenarPorDistancia(Inimigo **vetorEntidades, int n, Vector2 posJogador) {
     }
 }
 
-void desenharInimigo(Inimigo *ini) {
-    if (ini->estado == INIMIGO_MORTO) return;
-    Color cor = (ini->vida > 30) ? MAROON : ORANGE;
-    DrawCircleV(ini->pos, ini->raio, cor);
-    DrawText(TextFormat("%d", ini->vida), ini->pos.x - 8, ini->pos.y - 26, 14, BLACK);
+void desenharEntidade(Entidade *e) {
+    if (e == NULL) return;
+    DrawCircleV(e->pos, e->raio, e->cor);
+    if (e->tipo == ENTIDADE_INIMIGO) {
+        DrawText(TextFormat("%d", e->vida), e->pos.x - 8, e->pos.y - 26, 14, BLACK);
+    }
 }
 
 int main(void) {
     srand((unsigned int)time(NULL));
 
-    InitWindow(LARGURA_JANELA, ALTURA_JANELA, "Atividade 5 - Exercicio 1");
+    InitWindow(LARGURA_JANELA, ALTURA_JANELA, "Atividade 5 - Exercicios 1 e 2");
     SetTargetFPS(60);
 
-    Vector2 jogador = { LARGURA_JANELA / 2.0f, ALTURA_JANELA / 2.0f };
+    Entidade *vetorEntidades[MAX_ENTIDADES];
+    int totalEntidades = 0;
 
-    Inimigo *inimigos = (Inimigo *)malloc(TOTAL_INIMIGOS * sizeof(Inimigo));
-    inicializarInimigos(inimigos, TOTAL_INIMIGOS);
+    adicionarEntidade(vetorEntidades, &totalEntidades,
+                      criarEntidade(ENTIDADE_JOGADOR, (Vector2){ LARGURA_JANELA / 2.0f, ALTURA_JANELA / 2.0f }));
 
-    Inimigo **vetorEntidades = (Inimigo **)malloc((TOTAL_INIMIGOS + 1) * sizeof(Inimigo *));
-    vetorEntidades[0] = NULL; 
-    for (int i = 0; i < TOTAL_INIMIGOS; i++) {
-        vetorEntidades[i + 1] = &inimigos[i];
+    for (int i = 0; i < 5; i++) {
+        Vector2 posIni = { (float)GetRandomValue(40, LARGURA_JANELA - 40),
+                           (float)GetRandomValue(40, ALTURA_JANELA - 40) };
+        adicionarEntidade(vetorEntidades, &totalEntidades, criarEntidade(ENTIDADE_INIMIGO, posIni));
     }
 
     while (!WindowShouldClose()) {
-
+        Entidade *jogador = vetorEntidades[0];
         float vel = 250.0f * GetFrameTime();
-        if (IsKeyDown(KEY_RIGHT)) jogador.x += vel;
-        if (IsKeyDown(KEY_LEFT))  jogador.x -= vel;
-        if (IsKeyDown(KEY_UP))    jogador.y -= vel;
-        if (IsKeyDown(KEY_DOWN))  jogador.y += vel;
 
-        if (IsKeyPressed(KEY_SPACE)) {
-            Inimigo *alvo = encontrarInimigoMaisProximo(inimigos, TOTAL_INIMIGOS, jogador);
-            atingirInimigo(alvo, DANO_TIRO);
+        if (IsKeyDown(KEY_RIGHT)) jogador->pos.x += vel;
+        if (IsKeyDown(KEY_LEFT))  jogador->pos.x -= vel;
+        if (IsKeyDown(KEY_UP))    jogador->pos.y -= vel;
+        if (IsKeyDown(KEY_DOWN))  jogador->pos.y += vel;
+
+        if (IsKeyPressed(KEY_N)) {
+            if (totalEntidades < MAX_ENTIDADES) {
+                Vector2 posItem = { (float)GetRandomValue(30, LARGURA_JANELA - 30),
+                                    (float)GetRandomValue(30, ALTURA_JANELA - 30) };
+                adicionarEntidade(vetorEntidades, &totalEntidades, criarEntidade(ENTIDADE_ITEM, posItem));
+            }
         }
 
-        ordenarPorDistancia(vetorEntidades, TOTAL_INIMIGOS + 1, jogador);
+        ordenarPorDistancia(vetorEntidades, totalEntidades);
 
         BeginDrawing();
             ClearBackground(RAYWHITE);
 
-            for (int i = 0; i < TOTAL_INIMIGOS; i++) {
-                desenharInimigo(inimigos + i);
+            for (int i = 0; i < totalEntidades; i++) {
+                desenharEntidade(vetorEntidades[i]);
             }
 
-            DrawCircleV(jogador, RAIO_JOGADOR, BLUE);
+            if (totalEntidades > 1) {
+                DrawCircleLines(vetorEntidades[1]->pos.x, vetorEntidades[1]->pos.y, vetorEntidades[1]->raio + 4.0f, RED);
+            }
 
-            DrawText("ESPACO atira no inimigo vivo mais proximo", 10, 10, 20, DARKGRAY);
-            DrawText("Setas movem o jogador | ESC sai", 10, ALTURA_JANELA - 25, 16, GRAY);
+            DrawText("Setas movem o jogador | N gera um item | ESC sai", 10, 10, 20, DARKGRAY);
+            DrawText(TextFormat("Entidades: %d/%d", totalEntidades, MAX_ENTIDADES), 10, ALTURA_JANELA - 25, 16, GRAY);
 
         EndDrawing();
     }
 
-    free(inimigos);
-    free(vetorEntidades);
+    for (int i = 0; i < totalEntidades; i++) {
+        free(vetorEntidades[i]);
+    }
 
     CloseWindow();
     return 0;
